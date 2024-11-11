@@ -14,7 +14,8 @@
  *
  *
  *            --- Driver para XPort - IR - para TV  e Som --- Usando Controles criados na 7Port 
- *           v.1  5/11/2024 - BETA. 
+ *           v.1.0  5/11/2024  - BETA. 
+ *           v.1.1  11/11/2024 - Corregidos os comandos de envio. 
  *
  */
 metadata {
@@ -623,14 +624,14 @@ def push(pushed) {
 //Botão #1 para dashboard
 def poweron(){
      sendEvent(name: "switch", value: "on", isStateChange: true)
-     def ircode =  (settings.OnIRsend ?: "")
+     def ircode =  state.OnIRsend 
      EnviaComando(ircode)  
 }
 
 //Botão #41 para dashboard
 def poweroff(){
      sendEvent(name: "switch", value: "off", isStateChange: true)
-     def ircode =  (settings.OffIRsend ?: "")
+     def ircode =  state.OffIRsend 
      EnviaComando(ircode)  
 }
 
@@ -676,7 +677,7 @@ def hdmi1(){
 //Botão #7 para dashboard
 def hdmi2(){
     sendEvent(name: "input", value: "hdmi2")
-    def ircode =  (settings.hdmi2IRsend ?: "")
+    def ircode =  state.hdmi2IRsend 
     EnviaComando(ircode)
 }
 
@@ -685,14 +686,14 @@ def hdmi2(){
 //Botão #8 para dashboard
 def left(){
     sendEvent(name: "action", value: "left")
-    def ircode =  (settings.btnextra1IRsend ?: "")
+    def ircode =  state.btnextra1IRsend 
     EnviaComando(ircode)
 }
 
 //Botão #9 para dashboard
 def right(){
     sendEvent(name: "action", value: "right")
-     def ircode =  (settings.btnextra1IRsend ?: "")
+     def ircode =  state.btnextra1IRsend 
     EnviaComando(ircode)
 }
 
@@ -701,21 +702,21 @@ def right(){
 //Botão #10 para dashboard
 def up(){
     sendEvent(name: "action", value: "up")
-    def ircode =  (settings.upIRsend ?: "")
+    def ircode =  state.upIRsend
     EnviaComando(ircode)
 }
 
 //Botão #11 para dashboard
 def down(){
     sendEvent(name: "action", value: "down")
-    def ircode =  (settings.hdmi1 ?: "")
+    def ircode =  state.hdmi1
     EnviaComando(ircode)
 }
 
 //Botão #12 para dashboard
 def confirm(){
     sendEvent(name: "action", value: "confirm")
-    def ircode =  (settings.confirmIRsend ?: "")
+    def ircode =  state.confirmIRsend
     EnviaComando(ircode)
 }
 
@@ -723,7 +724,7 @@ def confirm(){
 //Botão #13 para dashboard
 def exit(){
 	sendEvent(name: "action", value: "exit")
-    def ircode =  (settings.exitIRsend ?: "")
+    def ircode =  state.exitIRsend
     EnviaComando(ircode)    
 }
 
@@ -733,7 +734,7 @@ def exit(){
 //Botão #14 para dashboard
 def home(){
     sendEvent(name: "action", value: "home")
-    def ircode =  (settings.homeIRsend ?: "")
+    def ircode =  state.homeIRsend 
     EnviaComando(ircode)
 }
 
@@ -742,28 +743,29 @@ def home(){
 //Botão #18 para dashboard
 def channelUp(){
 	sendEvent(name: "channel", value: "chup")
-   def ircode =  (settings.ChanUpIRsend ?: "")
+   def ircode =  state.ChanUpIRsend 
     EnviaComando(ircode)    
 }
 
 //Botão #19 para dashboard
 def channelDown(){
 	sendEvent(name: "channel", value: "chdown")
-    def ircode =  (settings.ChanDownIRsend ?: "")
+    def ircode =  state.ChanDownIRsend 
     EnviaComando(ircode)    
 }
 
 //Botão #21 para dashboard
 def volumeUp(){
 	sendEvent(name: "volume", value: "volup")
-    def ircode =  (settings.VolUpIRsend ?: "")
+    def ircode =  state.VolUpIRsend
     EnviaComando(ircode)    
+    
 }
 
 //Botão #22 para dashboard
 def volumeDown(){
 	sendEvent(name: "volume", value: "voldown")
-    def ircode =  (settings.VolDownIRsend ?: "")
+    def ircode =  state.VolDownIRsend
     EnviaComando(ircode)    
 }
 
@@ -771,21 +773,21 @@ def volumeDown(){
 //Botão #23 para dashboard
 def num0(){
     sendEvent(name: "action", value: "num0")
-    def ircode =  (settings.num0IRsend ?: "")
+    def ircode =  state.num0IRsend 
     EnviaComando(ircode)
 }
 
 //Botão #24 para dashboard
 def num1(){
     sendEvent(name: "action", value: "num1")
-   def ircode =  (settings.num1IRsend ?: "")
+   def ircode =  state.num1IRsend 
     EnviaComando(ircode)
 }
 
 //Botão #25 para dashboard
 def num2(){
     sendEvent(name: "action", value: "num2")
-    def ircode =  (settings.num2IRsend ?: "")
+    def ircode =  state.num2IRsend 
     EnviaComando(ircode)
 }
 
@@ -793,28 +795,28 @@ def num2(){
 //Botão #26 para dashboard
 def num3(){
     sendEvent(name: "action", value: "num3")
-    def ircode =  (settings.num3IRsend ?: "")
+    def ircode =  state.num3IRsend 
     EnviaComando(ircode)
 }
 
 //Botão #27 para dashboard
 def num4(){
     sendEvent(name: "action", value: "num4")
-    def ircode =  (settings.num4IRsend ?: "")
+    def ircode =  state.num4IRsend 
     EnviaComando(ircode)
 }
 
 //Botão #28 para dashboard
 def num5(){
     sendEvent(name: "action", value: "num5")
-    def ircode =  (settings.num5IRsend ?: "")
+    def ircode =  state.num5IRsend 
     EnviaComando(ircode)
 }
 
 //Botão #29 para dashboard
 def num6(){
     sendEvent(name: "action", value: "num6")
-    def ircode =  (settings.num6IRsend ?: "")
+    def ircode =  state.num6IRsend 
     EnviaComando(ircode)
 }
 
@@ -822,56 +824,56 @@ def num6(){
 //Botão #30 para dashboard
 def num7(){
     sendEvent(name: "action", value: "num7")
-    def ircode =  (settings.num7IRsend ?: "")
+    def ircode =  state.num7IRsend 
     EnviaComando(ircode)
 }
 
 //Botão #31 para dashboard
 def num8(){
     sendEvent(name: "action", value: "num8")
-    def ircode =  (settings.num8IRsend ?: "")
+    def ircode =  state.num8IRsend 
     EnviaComando(ircode)
 }
 
 //Botão #32 para dashboard
 def num9(){
     sendEvent(name: "action", value: "num9")
-    def ircode =  (settings.num9IRsend ?: "")
+    def ircode =  state.num9IRsend 
     EnviaComando(ircode)
 }
 
 //Botão #33 para dashboard
 def btnextra1(){
     sendEvent(name: "action", value: "confirm")
-    def ircode =  (settings.btnextra1IRsend ?: "")
+    def ircode =  state.btnextra1IRsend 
     EnviaComando(ircode)
 }
 
 //Botão #34 para dashboard
 def btnextra2(){
     sendEvent(name: "action", value: "btnextra2")
-    def ircode =  (settings.btnextra2IRsend ?: "")
+    def ircode =  state.btnextra2IRsend 
     EnviaComando(ircode)
 }
 
 //Botão #35 para dashboard
 def btnextra3(){
     sendEvent(name: "action", value: "btnextra3")
-    def ircode =  (settings.btnextra3IRsend ?: "")
+    def ircode =  state.btnextra3IRsend 
     EnviaComando(ircode)
 }
 
 //Botão #38 para dashboard
 def appAmazonPrime(){
     sendEvent(name: "input", value: "amazon")
-    def ircode =  (settings.amazonIRsend ?: "")
+    def ircode =  state.amazonIRsend 
     EnviaComando(ircode)
 }
 
 //Botão #39 para dashboard
 def appyoutube(){
     sendEvent(name: "input", value: "youtube")
-   def ircode =  (settings.youtubeIRsend ?: "")
+   def ircode =  state.youtubeIRsend 
     EnviaComando(ircode)
 }
 
@@ -879,10 +881,9 @@ def appyoutube(){
 //Botão #40 para dashboard
 def appnetflix(){
     sendEvent(name: "input", value: "netflix")
-    def ircode =  (settings.netflixIRsend ?: "")
+    def ircode =  state.netflixIRsend 
     EnviaComando(ircode)
 }
-  
 
 
 def logsOff() {
@@ -928,4 +929,3 @@ def info(msg) {
         log.info(msg)
     }
 }
-
