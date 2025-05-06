@@ -14,7 +14,7 @@
  *  for the specific language governing permissions and limitations under the License.
  *
  *
- *            --- Driver para 7Port - IR - para AC ---
+ *            --- Driver para 7Port - IR - para TV ---
  *              V.1.0   5/5/2025 - V1 para trazer os controles remotos prontos. 
 
  *
@@ -32,12 +32,15 @@ metadata {
 		attribute "supportedThermostatFanModes", "JSON_OBJECT"
 		attribute "supportedThermostatModes", "JSON_OBJECT"	  
 		attribute "hysteresis", "NUMBER"
+		attribute "lastCommandStatus", "string" // To track command delivery status
+      
 
     command "GetRemoteDATA"
     command "cleanvars"
     command "AtualizaDados7Port"
 	command "reconnect"
 	command "refresh"
+    command "checkConnection" // Added explicit connection check command      
       
       
   }
@@ -52,6 +55,14 @@ metadata {
 
     @Field static final String DRIVER = "by TRATO"
     @Field static final String USER_GUIDE = "https://github.com/hhorigian/hubitat_Controlart_7Port/tree/main"
+
+// Connection parameters
+@Field static final Integer RECONNECT_DELAY = 30 // seconds between reconnect attempts
+@Field static final Integer CONNECTION_TIMEOUT = 10 // seconds for connection timeout
+@Field static final Integer KEEPALIVE_INTERVAL = 300 // seconds between keepalive checks
+@Field static final Integer MAX_RETRY_ATTEMPTS = 3 // max retry attempts for sending commands
+
+
 
     String fmtHelpInfo(String str) {
     String prefLink = "<a href='${USER_GUIDE}' target='_blank'>${str}<br><div style='font-size: 70%;'>${DRIVER}</div></a>"
@@ -72,11 +83,10 @@ metadata {
   preferences {
     input name: "logEnable", type: "bool", title: "Enable debug logging", defaultValue: false
         input name: "molIPAddress", type: "text", title: "ControlArt IP Address", submitOnChange: true, required: true, defaultValue: "192.168.1.100" 
-	    input name: "channel", title:"Canal Infravermelho (1-7)", type: "string", required: true        
+	    input name: "channel", title:"Canal Infravermelho (1-8)", type: "string", required: true        
         input name: "logEnable", type: "bool", title: "Enable debug logging", defaultValue: false
 	    input "device_port", "number", title: "Port of 7port", required: true, defaultValue: 4998
 
-      
         //help guide
         input name: "UserGuide", type: "hidden", title: fmtHelpInfo("Manual do Driver") 
         input name: "SiteIR", type: "hidden", title: fmtHelpInfo1("Site IR MolSmart") 
@@ -102,45 +112,285 @@ def initialize() {
 		fanAuto()
 	}
 	sendEvent(name: "hysteresis", value: (hysteresis ?: 0.5).toBigDecimal())
-    state.currentip = ""
-    interfaces.rawSocket.close();    
-    boardstatusvar = "offline"    
     
+    // Initialize connection state
+    state.connectionAttempts = 0
+    state.lastCommand = ""
+    state.lastCommandAttempts = 0
     
-    try {
-        logTrace("Initialize: Tentando conexão com o device no ${molIPAddress}...na porta configurada: ${device_port}");
-        interfaces.rawSocket.connect(molIPAddress, (int) device_port);
-        state.lastMessageReceivedAt = now();        
-        if (boardstatusvar == "offline") { 
-            sendEvent(name: "boardstatus", value: "online", isStateChange: true)    
-            boardstatusvar = "online"
-        }
-        boardstatusvar = "online"
-        
+    // Start connection process
+    connectToDevice()
+    
+}
+
+
+def socketStatus(status) {
+    logDebug("Socket status: ${status}")
+    sendEvent(name: "socketStatus", value: status)
+    
+    if (status.contains("error") || status.contains("Broken pipe")) {
+        logWarn("Socket error detected, attempting to reconnect...")
+        runIn(5, "reconnect") // Delay slightly before reconnecting
     }
-    catch (e) {
-        logError( "Initialize: com ${molIPAddress} com um error: ${e.message}" )
-        boardstatusvar = "offline"
-        runIn(60, "initialize");
-    }    
-       //runIn(10, "refresh");
 }
 
 
 
+def connectToDevice() {
+    logDebug("Attempting to connect to device at ${molIPAddress}:${device_port}")
+    
+    // Close any existing connection
+    try {
+        interfaces.rawSocket.close()
+    } catch (Exception e) {
+        logDebug("Error closing socket: ${e.message}")
+    }
+    
+    sendEvent(name: "connectionStatus", value: "connecting")
+    sendEvent(name: "socketStatus", value: "connecting")
+    
+    try {
+        interfaces.rawSocket.connect(molIPAddress, device_port.toInteger())
+        state.lastConnectionAttempt = now()
+        state.connectionAttempts = (state.connectionAttempts ?: 0) + 1
+        
+        logInfo("Successfully connected to device")
+        sendEvent(name: "connectionStatus", value: "connected")
+        sendEvent(name: "socketStatus", value: "connected")
+        state.connectionAttempts = 0
+        
+        runIn(KEEPALIVE_INTERVAL, "checkConnection")
+        
+        if (state.lastCommand) {
+            runIn(2, "sendPendingCommand")
+        }
+    } catch (Exception e) {
+        handleConnectionError(e)
+    }
+}
+
+
+def handleConnectionError(error) {
+    def errorMsg = error.message ?: "Unknown error"
+    logError("Connection failed: ${errorMsg}")
+    sendEvent(name: "connectionStatus", value: "disconnected")
+    sendEvent(name: "socketStatus", value: "error: ${errorMsg}")
+    
+    if (state.connectionAttempts < MAX_RETRY_ATTEMPTS) {
+        def delay = RECONNECT_DELAY * (state.connectionAttempts ?: 1)
+        logDebug("Will retry connection in ${delay} seconds")
+        runIn(delay, "connectToDevice")
+    } else {
+        logWarn("Max connection attempts reached. Please check device settings.")
+    }
+}
+
+def rawSocketStatus(status) {
+    // This method will be called automatically by Hubitat when socket status changes
+    socketStatus(status)
+}
+
+
+
+def checkConnection() {
+    if (isConnected()) {
+        logDebug("Connection check: Device is connected")
+        sendEvent(name: "connectionStatus", value: "connected")
+        
+        // Send a simple command to verify the connection is alive
+        try {
+            interfaces.rawSocket.sendMessage("ping")
+            runIn(KEEPALIVE_INTERVAL, "checkConnection")
+        } catch (Exception e) {
+            logError("Keepalive check failed: ${e.message}")
+            sendEvent(name: "connectionStatus", value: "disconnected")
+            reconnect()
+        }
+    } else {
+        logDebug("Connection check: Device is not connected")
+        sendEvent(name: "connectionStatus", value: "disconnected")
+        reconnect()
+    }
+}
+
+def isConnected() {
+    try {
+        // Simple check to see if socket is connected
+        return interfaces.rawSocket.isConnected()
+    } catch (Exception e) {
+        return false
+    }
+}
+
+def reconnect() {
+    logDebug("Attempting to reconnect...")
+    connectToDevice()
+}
+
+def sendPendingCommand() {
+    if (state.lastCommand && state.lastCommandAttempts < MAX_RETRY_ATTEMPTS) {
+        logDebug("Resending pending command: ${state.lastCommand}")
+        state.lastCommandAttempts = (state.lastCommandAttempts ?: 0) + 1
+        sendCommand(state.lastCommand)
+    } else {
+        logWarn("No pending command or max retries reached")
+        state.lastCommand = ""
+        state.lastCommandAttempts = 0
+    }
+}
+
+private sendCommand(command) {
+    if (!isConnected()) {
+        logWarn("Cannot send command - not connected to device")
+        state.lastCommand = command
+        state.lastCommandAttempts = 0
+        reconnect()
+        return false
+    }
+    
+    try {
+        logDebug("Sending command: ${command}")
+        interfaces.rawSocket.sendMessage(command)
+        state.lastCommand = ""
+        state.lastCommandAttempts = 0
+        return true
+    } catch (Exception e) {
+        logError("Failed to send command: ${e.message}")
+        socketStatus("send error: ${e.message}")
+        state.lastCommand = command
+        sendEvent(name: "connectionStatus", value: "disconnected")
+        reconnect()
+        return false
+    }
+}
+
+
+//// ENVIA COMANDO ////
 
 
 private EnviaComando(command) {
-    logDebug("Command raw =  ${command}")
-    completesendir = "sendir,1:" + state.channel + ",1," + command
-    logDebug("Complete Sendir Command =  ${completesendir}")
-    interfaces.rawSocket.sendMessage(completesendir)    
+    logDebug("Attempting to send command: ${command}")
+    def completesendir = "sendir,1:" + state.channel + ",1," + command
+    
+    if (!isConnected()) {
+        logWarn("Not connected, queuing command for retry")
+        queueCommandForRetry(completesendir)
+        return false
+    }
+    
+    try {
+        // Store sent command for verification
+        state.lastSentCommand = completesendir
+        state.lastSentTime = now()
+        state.waitingForResponse = true
+        
+        interfaces.rawSocket.sendMessage(completesendir)
+        logDebug("Command sent, waiting for confirmation")
+        sendEvent(name: "lastCommandStatus", value: "sent")
+        
+        // Set timeout to check for response
+        runIn(5, "checkCommandResponse")
+        return true
+    } catch (Exception e) {
+        logError("Failed to send command: ${e.message}")
+        sendEvent(name: "lastCommandStatus", value: "failed: ${e.message}")
+        queueCommandForRetry(completesendir)
+        return false
+    }
+}
+
+def queueCommandForRetry(command) {
+    if (!state.queuedCommands) {
+        state.queuedCommands = []
+    }
+    
+    // Add command to queue if not already there
+    if (!state.queuedCommands.contains(command)) {
+        state.queuedCommands << command
+        logDebug("Command added to queue (${state.queuedCommands.size()} pending)")
+    }
+    
+    // Start retry process if not already running
+    if (!state.retryInProgress) {
+        state.retryInProgress = true
+        runIn(10, "processQueuedCommands")
+    }
+}
+
+def processQueuedCommands() {
+    if (!isConnected()) {
+        logDebug("Still not connected, will retry queued commands later")
+        state.retryInProgress = false
+        reconnect()
+        return
+    }
+    
+    def successfulSends = 0
+    def failedSends = 0
+    
+    state.queuedCommands?.each { cmd ->
+        try {
+            interfaces.rawSocket.sendMessage(cmd)
+            successfulSends++
+            logDebug("Retried command successfully: ${cmd}")
+        } catch (Exception e) {
+            failedSends++
+            logError("Retry failed for command: ${cmd} - ${e.message}")
+        }
+    }
+    
+    if (failedSends > 0) {
+        logWarn("${failedSends} commands failed during retry")
+        runIn(30, "processQueuedCommands") // Try again later
+    } else {
+        state.retryInProgress = false
+        state.queuedCommands = []
+        logInfo("All queued commands processed successfully")
+    }
+    
+    sendEvent(name: "lastCommandStatus", 
+             value: "retry results: ${successfulSends} success, ${failedSends} failed")
+}
+
+def checkCommandResponse() {
+    if (state.waitingForResponse) {
+        logWarn("No response received for last command")
+        sendEvent(name: "lastCommandStatus", value: "timeout: no response")
+        queueCommandForRetry(state.lastSentCommand)
+        state.waitingForResponse = false
+    }
+}
+
+def parse(msg) {
+    state.lastMessageReceived = new Date(now()).toString()
+    state.lastMessageReceivedAt = now()
+        
+    def newmsg = hubitat.helper.HexUtils.hexStringToByteArray(msg)
+    def newmsg2 = new String(newmsg)
+    
+    state.lastmessage = newmsg2
+    logDebug("Received message: ${newmsg2}")
+    
+    // Check if this is a response to our command
+    if (state.waitingForResponse && newmsg2.contains("completeir")) {
+        state.waitingForResponse = false
+        unschedule("checkCommandResponse")
+        sendEvent(name: "lastCommandStatus", value: "confirmed")
+        logInfo("Command execution confirmed by device")
+    }
+    
+    // Update connection status
+    sendEvent(name: "connectionStatus", value: "connected")
+    sendEvent(name: "socketStatus", value: "active")
+    
+    // Reset keepalive timer
+    unschedule("checkConnection")
+    runIn(KEEPALIVE_INTERVAL, "checkConnection")
 }
 
 
 
-
-
+//// Gets data fom IR MolSmart
 
 def GetRemoteDATA()
 {
@@ -238,13 +488,15 @@ def installed()
 }
 
 
-def updated()
-{  
+def updated() {
     log.debug "updated()"
-	initialize()
-    AtualizaDados7Port()   
-	//if (logEnable) runIn(1800,logsOff)
-		
+    initialize()
+    AtualizaDados7Port()
+    
+    // Clear any pending commands when settings change
+    state.queuedCommands = []
+    state.retryInProgress = false
+    state.waitingForResponse = false
 }
 
 
@@ -256,25 +508,6 @@ def AtualizaDados7Port() {
 
 }
 
-def reconnect () {
-    interfaces.rawSocket.close();
-    state.lastMessageReceived = ""
-    state.lastmessage = ""
-
-
-    try {
-        logTrace("Re-tentando conexão com o device no ${molIPAddress}...na porta ${device_port}");
-        interfaces.rawSocket.connect(molIPAddress, (int) device_port);
-        state.lastMessageReceivedAt = now();
-        runIn(checkInterval, "connectionCheck");
-    }
-    catch (e) {
-         logError( "${molIPAddress} keepalive error: ${e.message}" )
-         sendEvent(name: "boardstatus", value: "offline", isStateChange: true)        
-    }
-    pauseExecution(500)        
-}
-
 
 def refresh() {
     //def msg = "mdcmd_getmd," + state.newmacdec
@@ -282,29 +515,6 @@ def refresh() {
     logTrace('Sent refresh()')   
     EnviaComando(msg)
 }
-
-
-////////////////////////////
-//// Connections Checks ////
-////////////////////////////
-
-def connectionCheck() {
-    def now = now();
-    
-    if ( now - state.lastMessageReceivedAt > (checkInterval * 1000)) { 
-        logError("sem mensagens desde ${(now - state.lastMessageReceivedAt)/60000} minutos, reconectando ...");
-        keepalive();
-    }
-    else if (state.lastmessage.contains("ParseError")){
-        logError("Problemas no último Parse, reconectando ...");
-        keepalive();
-    } else {       
-        logDebug("Connection Check = ok - Board response. ");
-        sendEvent(name: "boardstatus", value: "online")
-        runIn(checkInterval, "connectionCheck");
-    }
-}
-
 
 
 
@@ -995,43 +1205,6 @@ def setThermostatMode(thermostatmode) {
 
 
 
-
-
-
-def parse(msg) {
-    state.lastMessageReceived = new Date(now()).toString();
-    state.lastMessageReceivedAt = now();
-        
-    def oldmessage = state.lastmessage
-    
-    def newmsg = hubitat.helper.HexUtils.hexStringToByteArray(msg) //na Mol, o resultado vem em HEX, então preciso converter para Array
-    def newmsg2 = new String(newmsg) // Array para String    
-    
-    state.lastmessage = newmsg2 //ok
-    larguramsg = newmsg2.length()
-    state.larguramsg = larguramsg
-    log.info "qtde chars = " + larguramsg
-    log.info "lastmessage = " + newmsg2
-    
-    //completeir,1:8,1
-    //qtde chars = 18
-
-    //IR Return 
-    if ((newmsg2.contains("completeir") && (newmsg2.length() == 18))) {
-        //log.info "mac completa = " + newmsg2
-
-                
-        log.info "Enviado OK o Comando IR "
-        sendEvent(name: "boardstatus", value: "online")
-
-    }    
-    
-    
-    
-    
-    
-
-}
 
 def info(msg) {
     if (logLevel == "INFO" || logLevel == "DEBUG") {
