@@ -33,7 +33,7 @@ Driver para usar Controles Remotos criados no http://ir.molsmart.com.br.
 		Botão 3 : heat
 		Botão 4 : cool
         	Botão 5 : fan
-       		Botão 6 : dry
+	 	Botão 6 : dry
         	Botão 7 : setautocool                
         	Botão 8 : comandoextra1    
         	Botão 9 : comandoextra2            
@@ -43,7 +43,7 @@ Driver para usar Controles Remotos criados no http://ir.molsmart.com.br.
         	Botão 13 : fanAuto    
         	Botão 14 : fanLow    
         	Botão 15 : fanMed    
-       		Botão 16 : fanHigh   
+	 	Botão 16 : fanHigh   
         	Botão 17 : comandoextra6  
         	Botão 18 : comandoextra7  
         	Botão 19 : comandoextra8   
