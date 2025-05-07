@@ -1,4 +1,4 @@
-# CA 7Port + Hubitat Driver para IR usando TV/Som
+# CA 7Port + Hubitat Driver para IR 
 1era Versão do Driver para usar Hubitat + 7port da CA. 
 
 - AC: Nova: Versão pronta usando o banco de dados de infravermelhos da ir.molsmart. Lembrando que aqui não precisa colar os sendir e repetir o mesmo procedimento para cada AR. Pega todos os códigos da base.
