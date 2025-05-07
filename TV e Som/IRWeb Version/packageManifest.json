@@ -1,0 +1,17 @@
+{
+ "packageName":"Controlart - 7Port AC (irweb)",
+ "author":"VH",
+ "version":"1.0",
+ "minimumHEVersion":"2.4.1.151",
+ "dateReleased":"2025-05-07",
+ "releaseNotes":"First version pushed to HPM",
+ "documentationLink":"https://github.com/hhorigian/hubitat_Controlart_7Port/tree/main/AC/IRWeb%20Version",
+ "drivers": [
+  {
+     "id":"8c361774-2867-47c9-ae57-ec514ff11ce6",
+     "name":"ControlArt - 7port - IR - AC (irweb)",
+     "location":"https://raw.githubusercontent.com/hhorigian/hubitat_Controlart_7Port/refs/heads/main/AC/IRWeb%20Version/Hubitat_CA_7port_IR_AC(irweb).groovy",
+     "required":true
+  }
+  ]
+}
